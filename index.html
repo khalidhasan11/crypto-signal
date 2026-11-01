@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crypto Signal — Live News + Chart Buy/Sell</title>
+<meta name="description" content="Live crypto Buy/Sell technical ratings (TradingView-style) fused with real-time news sentiment. Free, no sign-up.">
+<style>
+  :root{--bg:#0b0f17;--card:#131a28;--line:#22304a;--txt:#e8eef8;--dim:#8fa3c0;
+        --up:#22c55e;--down:#ef4444;--flat:#f59e0b;--accent:#38bdf8;
+        --ss:#b91c1c;--s:#ef4444;--n:#64748b;--b:#4ade80;--sb:#16a34a}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:system-ui,'Segoe UI',sans-serif;padding:14px;max-width:1060px;margin:0 auto}
+  header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:6px}
+  h1{font-size:20px}
+  .sub{color:var(--dim);font-size:12.5px;margin-bottom:12px;line-height:1.55}
+  .btns{display:flex;gap:6px;flex-wrap:wrap}
+  .btn{background:#1b2740;color:var(--txt);border:1px solid var(--line);padding:6px 13px;border-radius:999px;cursor:pointer;font-size:13.5px}
+  .btn.active{background:var(--accent);color:#04263b;font-weight:700}
+  .pricewrap{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;margin:6px 0 12px}
+  .price{font-size:32px;font-weight:800}
+  .chg{font-size:16px;font-weight:700}
+  .live{font-size:11px;color:var(--up);font-weight:700}
+  .live::before{content:'●';margin-right:4px;animation:blink 1.2s infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;flex:1;min-width:280px;margin-bottom:12px}
+  .card h3{font-size:15px;margin-bottom:6px;text-align:center}
+  .gauge{width:230px;max-width:100%;margin:2px auto 0;display:block}
+  .glabel{text-align:center;font-size:19px;font-weight:800;margin-top:2px}
+  .counts{display:flex;justify-content:space-between;font-size:12.5px;color:var(--dim);margin-top:8px;padding:0 6px}
+  .counts b{display:block;text-align:center;font-size:16px}
+  .c-sell{color:var(--down)} .c-neu{color:var(--dim)} .c-buy{color:var(--up)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  td,th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:left}
+  th{color:var(--dim);font-weight:600}
+  td.v{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
+  .act{font-weight:700;text-align:right}
+  .act.buy{color:var(--up)} .act.sell{color:var(--down)} .act.neutral{color:var(--dim)}
+  .final{text-align:center}
+  .final .sig{font-size:40px;font-weight:800;letter-spacing:.5px}
+  .up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--flat)}
+  .bar{height:10px;background:#0a0f1a;border-radius:99px;position:relative;margin:6px 0 3px;overflow:hidden}
+  .bar>i{position:absolute;top:0;bottom:0;display:block}
+  .scorerow{display:flex;justify-content:space-between;font-size:13.5px;padding:2px 0}
+  ul.reasons{padding-left:18px;font-size:13.5px;line-height:1.65}
+  .veto{background:#7f1d1d;border:1px solid #ef4444;color:#fecaca;border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:12px}
+  .tag{font-size:11px;padding:2px 8px;border-radius:99px;font-weight:700}
+  .tag.bullish{background:#14532d;color:#86efac}.tag.bearish{background:#7f1d1d;color:#fca5a5}.tag.neutral{background:#334155;color:#cbd5e1}
+  .newsitem{padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+  .newsitem a{color:var(--txt);text-decoration:none}
+  .newsmeta{color:var(--dim);font-size:11.5px;margin-top:2px}
+  .foot{color:var(--dim);font-size:12px;text-align:center;margin:8px 0 26px;line-height:1.65}
+  #status{color:var(--dim);font-size:12px}
+  .newsscore{text-align:center;font-size:15px;margin:4px 0 8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 Crypto Signal <span style="color:var(--dim);font-size:13px">— Live</span></h1>
+  <div class="btns" id="symBtns">
+    <button class="btn active" data-sym="BTCUSDT">BTC / USDT</button>
+    <button class="btn" data-sym="ETHUSDT">ETH / USDT</button>
+  </div>
+</header>
+<div class="sub">TradingView-এর মতো instant Buy/Sell rating — oscillators + moving averages থেকে প্রতি কয়েক সেকেন্ডে আপডেট হয়। সঙ্গে লাইভ নিউজ sentiment মিলিয়ে final fusion signal। <span id="status">connecting…</span></div>
+
+<div class="pricewrap">
+  <div class="price" id="price">—</div>
+  <div class="chg" id="chg24">—</div>
+  <div class="live">LIVE</div>
+  <div class="btns" id="tfBtns">
+    <button class="btn" data-tf="1m">1m</button>
+    <button class="btn active" data-tf="5m">5m</button>
+    <button class="btn" data-tf="15m">15m</button>
+    <button class="btn" data-tf="30m">30m</button>
+    <button class="btn" data-tf="1h">1h</button>
+    <button class="btn" data-tf="4h">4h</button>
+  </div>
+</div>
+
+<div id="vetoBox"></div>
+
+<div class="row">
+  <div class="card">
+    <h3>Oscillators</h3>
+    <div id="gaugeOsc"></div>
+    <div class="counts"><span>SELL<b class="c-sell" id="oscSell">–</b></span><span>NEUTRAL<b class="c-neu" id="oscNeu">–</b></span><span>BUY<b class="c-buy" id="oscBuy">–</b></span></div>
+  </div>
+  <div class="card">
+    <h3>Summary — Technical Rating</h3>
+    <div id="gaugeSum"></div>
+    <div class="counts"><span>SELL<b class="c-sell" id="sumSell">–</b></span><span>NEUTRAL<b class="c-neu" id="sumNeu">–</b></span><span>BUY<b class="c-buy" id="sumBuy">–</b></span></div>
+  </div>
+  <div class="card">
+    <h3>Moving Averages</h3>
+    <div id="gaugeMA"></div>
+    <div class="counts"><span>SELL<b class="c-sell" id="maSell">–</b></span><span>NEUTRAL<b class="c-neu" id="maNeu">–</b></span><span>BUY<b class="c-buy" id="maBuy">–</b></span></div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="card final">
+    <h3>⭐ Final Fusion Signal — Chart + News</h3>
+    <div class="sig" id="finalSig">—</div>
+    <div class="scorerow"><span>Technical (multi-timeframe, 70%)</span><b id="fTech">—</b></div>
+    <div class="bar"><i id="fTechBar"></i></div>
+    <div class="scorerow"><span>News sentiment (20%)</span><b id="fNews">—</b></div>
+    <div class="bar"><i id="fNewsBar"></i></div>
+    <div class="scorerow"><span>Market context — Fear &amp; Greed + 24h (10%)</span><b id="fCtx">—</b></div>
+    <div class="bar"><i id="fCtxBar"></i></div>
+    <div class="scorerow" style="border-top:1px solid var(--line);margin-top:6px;padding-top:8px"><span><b>Final score</b></span><b id="fFinal">—</b></div>
+    <div id="fNote" style="color:var(--dim);font-size:12.5px;margin-top:6px"></div>
+  </div>
+  <div class="card">
+    <h3 style="text-align:left">কেন এই সিগন্যাল?</h3>
+    <ul class="reasons" id="reasons"><li>ডেটা লোড হচ্ছে…</li></ul>
+  </div>
+</div>
+
+<div class="row">
+  <div class="card">
+    <h3 style="text-align:left">Oscillators — বিস্তারিত</h3>
+    <table><thead><tr><th>Name</th><th style="text-align:right">Value</th><th style="text-align:right">Action</th></tr></thead><tbody id="oscTable"></tbody></table>
+  </div>
+  <div class="card">
+    <h3 style="text-align:left">Moving Averages — বিস্তারিত</h3>
+    <table><thead><tr><th>Name</th><th style="text-align:right">Value</th><th style="text-align:right">Action</th></tr></thead><tbody id="maTable"></tbody></table>
+  </div>
+</div>
+
+<div class="card">
+  <h3 style="text-align:left">📰 লাইভ ক্রিপ্টো নিউজ + Sentiment</h3>
+  <div class="newsscore" id="newsScore">—</div>
+  <div id="newsList">লোড হচ্ছে…</div>
+</div>
+
+<div class="card">
+  <h3 style="text-align:left">🧪 Backtest (technical-only, 5m chart, payout 85% হলে break-even 54.05%)</h3>
+  <div id="btBody" style="font-size:13.5px;line-height:1.7;color:var(--dim)">পেজ লোডের পর auto-run হবে…</div>
+</div>
+
+<div class="foot">
+  ⚠️ Educational tool — কোনো rating/signal-ই profit guarantee করে না। Binary options-এ break-even করতেই ~54–56% win rate লাগে; real money-র আগে demo/paper-এ যাচাই করো।<br>
+  Market data: Binance public API · News: CoinDesk / CoinTelegraph / Decrypt / Bitcoin Magazine / Google News (RSS) · Mood: Fear &amp; Greed Index<br>
+  Built by Khalid — Crypto Signal Prototype
+</div>
+
+<script>
+'use strict';
+/* ============================== config & state ============================== */
+const BINANCE = 'https://data-api.binance.vision';
+const state = {
+  symbol: 'BTCUSDT', tf: '5m',
+  candles: {},        // tf -> [{t,o,h,l,c,v}]
+  ticker: null, fng: null,
+  news: { score: 0, items: [], bull: 0, bear: 0, danger: null, loaded: false },
+  tfScores: {},       // fusion technical per TF (prototype v1 scorer)
+};
+const TFS_FUSION = ['1m','5m','15m','1h'];
+const TF_W = {'1m':0.15,'5m':0.35,'15m':0.30,'1h':0.20};
+
+/* ============================== indicators ============================== */
+function smaArr(v, p){ const o = new Array(v.length).fill(null); let s = 0;
+  for(let i=0;i<v.length;i++){ s += v[i]; if(i>=p) s -= v[i-p]; if(i>=p-1) o[i] = s/p; } return o; }
+function emaArr(v, p){ const o = new Array(v.length).fill(null); if(v.length < p) return o;
+  const k = 2/(p+1); let e = v.slice(0,p).reduce((a,b)=>a+b,0)/p; o[p-1] = e;
+  for(let i=p;i<v.length;i++){ e = v[i]*k + e*(1-k); o[i] = e; } return o; }
+function last(a){ for(let i=a.length-1;i>=0;i--) if(a[i] !== null && a[i] !== undefined && !Number.isNaN(a[i])) return a[i]; return null; }
+function rsiArr(c, p=14){ const o = new Array(c.length).fill(null); if(c.length <= p) return o;
+  let g = 0, l = 0;
+  for(let i=1;i<=p;i++){ const d = c[i]-c[i-1]; g += Math.max(d,0); l += Math.max(-d,0); }
+  g/=p; l/=p; o[p] = l===0 ? 100 : 100 - 100/(1+g/l);
+  for(let i=p+1;i<c.length;i++){ const d = c[i]-c[i-1];
+    g = (g*(p-1)+Math.max(d,0))/p; l = (l*(p-1)+Math.max(-d,0))/p;
+    o[i] = l===0 ? 100 : 100 - 100/(1+g/l); } return o; }
+function macdData(c){ const e12 = emaArr(c,12), e26 = emaArr(c,26);
+  const line = c.map((_,i)=> (e12[i]!=null && e26[i]!=null) ? e12[i]-e26[i] : null);
+  const idx = line.findIndex(x=>x!==null); if(idx<0) return {line:[],sig:[],hist:[]};
+  const sub = line.slice(idx); const sigSub = emaArr(sub,9);
+  const sig = new Array(idx).fill(null).concat(sigSub);
+  const hist = line.map((x,i)=> (x!==null && sig[i]!==null) ? x-sig[i] : null);
+  return {line, sig, hist}; }
+function stochData(h,l,c,kp=14,ks=3,dp=3){ const raw = new Array(c.length).fill(null);
+  for(let i=kp-1;i<c.length;i++){ const hh = Math.max(...h.slice(i-kp+1,i+1)), ll = Math.min(...l.slice(i-kp+1,i+1));
+    raw[i] = hh===ll ? 50 : (c[i]-ll)/(hh-ll)*100; }
+  const k = smaArr(raw.map(x=>x===null?NaN:x), ks).map(x=>Number.isNaN(x)?null:x);
+  const d = smaArr(k.map(x=>x===null?NaN:x), dp).map(x=>Number.isNaN(x)?null:x);
+  return {k, d}; }
+function cciArr(h,l,c,p=20){ const tp = c.map((_,i)=>(h[i]+l[i]+c[i])/3); const s = smaArr(tp,p); const o = new Array(c.length).fill(null);
+  for(let i=p-1;i<c.length;i++){ if(s[i]==null) continue; let md = 0; for(let j=i-p+1;j<=i;j++) md += Math.abs(tp[j]-s[i]); md/=p;
+    o[i] = md===0 ? 0 : (tp[i]-s[i])/(0.015*md); } return o; }
+function willrArr(h,l,c,p=14){ const o = new Array(c.length).fill(null);
+  for(let i=p-1;i<c.length;i++){ const hh = Math.max(...h.slice(i-p+1,i+1)), ll = Math.min(...l.slice(i-p+1,i+1));
+    o[i] = hh===ll ? -50 : (hh-c[i])/(hh-ll)*-100; } return o; }
+function adxData(h,l,c,p=14){ const n = c.length; const tr = new Array(n).fill(0), pdm = new Array(n).fill(0), mdm = new Array(n).fill(0);
+  for(let i=1;i<n;i++){ tr[i] = Math.max(h[i]-l[i], Math.abs(h[i]-c[i-1]), Math.abs(l[i]-c[i-1]));
+    const up = h[i]-h[i-1], dn = l[i-1]-l[i]; pdm[i] = (up>dn && up>0) ? up : 0; mdm[i] = (dn>up && dn>0) ? dn : 0; }
+  const sm = (a)=>{ const o = new Array(n).fill(null); let s = 0; for(let i=1;i<=p;i++) s += a[i]; o[p] = s;
+    for(let i=p+1;i<n;i++){ s = s - s/p + a[i]; o[i] = s; } return o; };
+  const str = sm(tr), sp = sm(pdm), smn = sm(mdm);
+  const pdi = new Array(n).fill(null), mdi = new Array(n).fill(null), dx = new Array(n).fill(null);
+  for(let i=0;i<n;i++){ if(str[i]){ pdi[i] = sp[i]/str[i]*100; mdi[i] = smn[i]/str[i]*100;
+    dx[i] = (pdi[i]+mdi[i])===0 ? 0 : Math.abs(pdi[i]-mdi[i])/(pdi[i]+mdi[i])*100; } }
+  const adx = new Array(n).fill(null); const valid = []; dx.forEach((x,i)=>{ if(x!==null) valid.push([i,x]); });
+  if(valid.length > p){ let a = valid.slice(0,p).reduce((s,x)=>s+x[1],0)/p; adx[valid[p-1][0]] = a;
+    for(let j=p;j<valid.length;j++){ a = (a*(p-1)+valid[j][1])/p; adx[valid[j][0]] = a; } }
+  return {adx, pdi, mdi}; }
+function stochRsiData(c){ const r = rsiArr(c,14); const vals = r.map(x=>x===null?NaN:x);
+  const raw = new Array(c.length).fill(null);
+  for(let i=14;i<c.length;i++){ const w = vals.slice(i-13,i+1); if(w.some(Number.isNaN)) continue;
+    const mx = Math.max(...w), mn = Math.min(...w); raw[i] = mx===mn ? 50 : (vals[i]-mn)/(mx-mn)*100; }
+  const k = smaArr(raw.map(x=>x===null?NaN:x),3).map(x=>Number.isNaN(x)?null:x);
+  const d = smaArr(k.map(x=>x===null?NaN:x),3).map(x=>Number.isNaN(x)?null:x);
+  return {k, d}; }
+function aoData(h,l){ const med = h.map((x,i)=>(x+l[i])/2); const a = smaArr(med,5), b = smaArr(med,34);
+  return med.map((_,i)=> (a[i]!=null && b[i]!=null) ? a[i]-b[i] : null); }
+function uoData(h,l,c){ const n = c.length; const bp = new Array(n).fill(0), tr = new Array(n).fill(0);
+  for(let i=1;i<n;i++){ const tl = Math.min(l[i], c[i-1]); bp[i] = c[i]-tl; tr[i] = Math.max(h[i], c[i-1]) - tl; }
+  const avg = (p)=>{ const o = new Array(n).fill(null); for(let i=p;i<n;i++){ let sb=0, st=0;
+    for(let j=i-p+1;j<=i;j++){ sb+=bp[j]; st+=tr[j]; } o[i] = st===0 ? 0 : sb/st; } return o; };
+  const a7 = avg(7), a14 = avg(14), a28 = avg(28);
+  return c.map((_,i)=> (a7[i]!=null && a14[i]!=null && a28[i]!=null) ? (4*a7[i]+2*a14[i]+a28[i])/7*100 : null); }
+</script>
+<script>
+'use strict';
+/* ============================== ratings (TradingView-style) ============================== */
+function actOf(v){ return v > 0 ? 'Buy' : (v < 0 ? 'Sell' : 'Neutral'); }
+function ratingLabel(score){ // score -1..+1
+  if(score >= 0.5) return ['Strong Buy','var(--sb)'];
+  if(score > 0.1) return ['Buy','var(--b)'];
+  if(score >= -0.1) return ['Neutral','var(--n)'];
+  if(score > -0.5) return ['Sell','var(--s)'];
+  return ['Strong Sell','var(--ss)'];
+}
+function summarize(items){
+  let buy = 0, sell = 0, neu = 0, sum = 0;
+  for(const it of items){ sum += it.v; if(it.v > 0) buy++; else if(it.v < 0) sell++; else neu++; }
+  const score = items.length ? sum / items.length : 0;
+  return {buy, sell, neu, score, label: ratingLabel(score)};
+}
+function computeRatings(candles){
+  const c = candles.map(x=>x.c), h = candles.map(x=>x.h), l = candles.map(x=>x.l), v = candles.map(x=>x.v);
+  const price = c[c.length-1];
+  const osc = [];
+  const rsi = last(rsiArr(c)); osc.push({name:'Relative Strength Index (14)', val:rsi, v: rsi===null?0:(rsi<30?1:(rsi>70?-1:0))});
+  const st = stochData(h,l,c); const sk = last(st.k), sd = last(st.d);
+  osc.push({name:'Stochastic %K (14, 3, 3)', val:sk, v: sk===null?0:(sk<20?1:(sk>80?-1:0))});
+  const cci = last(cciArr(h,l,c)); osc.push({name:'Commodity Channel Index (20)', val:cci, v: cci===null?0:(cci<-100?1:(cci>100?-1:0))});
+  const ad = adxData(h,l,c); const adx = last(ad.adx), pdi = last(ad.pdi), mdi = last(ad.mdi);
+  osc.push({name:'Average Directional Index (14)', val:adx, v: (adx===null||adx<25)?0:(pdi>mdi?1:-1)});
+  const ao = aoData(h,l); const aoNow = last(ao), aoPrev = ao[ao.length-3];
+  osc.push({name:'Awesome Oscillator', val:aoNow, v: (aoNow===null||aoPrev===null)?0:((aoNow>0&&aoNow>aoPrev)?1:((aoNow<0&&aoNow<aoPrev)?-1:0))});
+  const mom = c.length>10 ? c[c.length-1]-c[c.length-11] : null;
+  osc.push({name:'Momentum (10)', val:mom, v: mom===null?0:(mom>0?1:-1)});
+  const md = macdData(c); const mh = last(md.hist);
+  osc.push({name:'MACD Level (12, 26)', val:mh, v: mh===null?0:(mh>0?1:-1)});
+  const sr = stochRsiData(c); const srk = last(sr.k);
+  osc.push({name:'Stochastic RSI Fast (3, 3, 14, 14)', val:srk, v: srk===null?0:(srk<20?1:(srk>80?-1:0))});
+  const wr = last(willrArr(h,l,c)); osc.push({name:'Williams Percent Range (14)', val:wr, v: wr===null?0:(wr<-80?1:(wr>-20?-1:0))});
+  const e13 = last(emaArr(c,13)); const bbp = e13===null ? null : h[h.length-1]-e13;
+  osc.push({name:'Bull Bear Power', val:bbp, v: bbp===null?0:(bbp>0?1:-1)});
+  const uo = last(uoData(h,l,c)); osc.push({name:'Ultimate Oscillator (7, 14, 28)', val:uo, v: uo===null?0:(uo<30?1:(uo>70?-1:0))});
+
+  const mas = [];
+  for(const p of [5,10,20,50,100,200]){
+    const s = last(smaArr(c,p)); if(s!==null) mas.push({name:`Simple Moving Average (${p})`, val:s, v: price>s?1:-1});
+    const e = last(emaArr(c,p)); if(e!==null) mas.push({name:`Exponential Moving Average (${p})`, val:e, v: price>e?1:-1});
+  }
+  let vw = null, vs = 0, cs = 0; for(let i=Math.max(0,c.length-20);i<c.length;i++){ vs += v[i]; cs += c[i]*v[i]; }
+  vw = vs>0 ? cs/vs : null; if(vw!==null) mas.push({name:'Volume Weighted Moving Average (20)', val:vw, v: price>vw?1:-1});
+  const w26 = candles.slice(-26); const kijun = w26.length ? (Math.max(...w26.map(x=>x.h)) + Math.min(...w26.map(x=>x.l)))/2 : null;
+  if(kijun!==null) mas.push({name:'Ichimoku Base Line (9, 26, 52)', val:kijun, v: price>kijun?1:-1});
+  return {osc, mas};
+}
+function gaugeSVG(score){
+  const segs = [['-90','-54','var(--ss)'],['-54','-18','var(--s)'],['-18','18','var(--n)'],['18','54','var(--b)'],['54','90','var(--sb)']];
+  const arc = (a0,a1,color)=>{ const r = 86, cx = 110, cy = 104;
+    const p = a => [cx + r*Math.sin(a*Math.PI/180), cy - r*Math.cos(a*Math.PI/180)];
+    const [x0,y0] = p(a0), [x1,y1] = p(a1);
+    return `<path d="M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}" stroke="${color}" stroke-width="15" fill="none" stroke-linecap="butt"/>`; };
+  const [label, color] = ratingLabel(score);
+  const ang = Math.max(-88, Math.min(88, score * 88));
+  const nx = 110 + 62*Math.sin(ang*Math.PI/180), ny = 104 - 62*Math.cos(ang*Math.PI/180);
+  return `<svg class="gauge" viewBox="0 0 220 118">${segs.map(s=>arc(+s[0],+s[1],s[2])).join('')}
+    <line x1="110" y1="104" x2="${nx}" y2="${ny}" stroke="#e8eef8" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="110" cy="104" r="6" fill="#e8eef8"/></svg>
+    <div class="glabel" style="color:${color}">${label}</div>`;
+}
+function renderRatings(){
+  const candles = state.candles[state.tf];
+  if(!candles || candles.length < 210) return;
+  const {osc, mas} = computeRatings(candles);
+  const so = summarize(osc), sm = summarize(mas), sall = summarize(osc.concat(mas));
+  document.getElementById('gaugeOsc').innerHTML = gaugeSVG(so.score);
+  document.getElementById('gaugeMA').innerHTML = gaugeSVG(sm.score);
+  document.getElementById('gaugeSum').innerHTML = gaugeSVG(sall.score);
+  const set = (p,s)=>{ document.getElementById(p+'Sell').textContent = s.sell; document.getElementById(p+'Neu').textContent = s.neu; document.getElementById(p+'Buy').textContent = s.buy; };
+  set('osc', so); set('ma', sm); set('sum', sall);
+  const fmtV = x => x===null||x===undefined ? '—' : (Math.abs(x) >= 1000 ? x.toLocaleString('en-US',{maximumFractionDigits:2}) : x.toFixed(2));
+  document.getElementById('oscTable').innerHTML = osc.map(it=>`<tr><td>${it.name}</td><td class="v">${fmtV(it.val)}</td><td class="act ${actOf(it.v).toLowerCase()}">${actOf(it.v)}</td></tr>`).join('');
+  document.getElementById('maTable').innerHTML = mas.map(it=>`<tr><td>${it.name}</td><td class="v">${fmtV(it.val)}</td><td class="act ${actOf(it.v).toLowerCase()}">${actOf(it.v)}</td></tr>`).join('');
+}
+
+/* ================= prototype v1 TF scorer (fusion technical) ================= */
+function emaLastSimple(vals, p){ if(vals.length < p) return null; const k = 2/(p+1);
+  let e = vals.slice(0,p).reduce((a,b)=>a+b,0)/p; for(let i=p;i<vals.length;i++) e = vals[i]*k + e*(1-k); return e; }
+function bollPos(closes, p=20){ if(closes.length < p) return null; const w = closes.slice(-p);
+  const mid = w.reduce((a,b)=>a+b,0)/p; const sd = Math.sqrt(w.reduce((s,x)=>s+(x-mid)**2,0)/p);
+  const up = mid+2*sd, lo = mid-2*sd; return up===lo ? 0.5 : (closes[closes.length-1]-lo)/(up-lo); }
+function candlePattern(candles){
+  if(candles.length < 3) return [0, null];
+  const L = candles[candles.length-2], P = candles[candles.length-3];
+  const body = L.c - L.o, rng = Math.max(L.h - L.l, 1e-9), ab = Math.abs(body);
+  const uw = L.h - Math.max(L.o, L.c), lw = Math.min(L.o, L.c) - L.l;
+  if(body > 0 && P.c < P.o && L.c > P.o && L.o < P.c) return [12,'Bullish Engulfing'];
+  if(body < 0 && P.c > P.o && L.c < P.o && L.o > P.c) return [-12,'Bearish Engulfing'];
+  if(ab/rng < 0.15) return [0,'Doji (সিদ্ধান্তহীনতা)'];
+  if(lw > ab*2 && body > 0) return [10,'Hammer (নিচ থেকে rejection)'];
+  if(uw > ab*2 && body < 0) return [-10,'Shooting Star (ওপর থেকে rejection)'];
+  if(ab/rng > 0.8) return body > 0 ? [7,'Strong Bullish Candle'] : [-7,'Strong Bearish Candle'];
+  return [0, null];
+}
+function scoreTF(candlesAll){
+  const closed = candlesAll.slice(0, -1); if(closed.length < 60) return null;
+  const closes = closed.map(x=>x.c), vols = closed.map(x=>x.v); const price = closes[closes.length-1];
+  let score = 0; const reasons = [];
+  const e9 = emaLastSimple(closes,9), e21 = emaLastSimple(closes,21), e50 = emaLastSimple(closes,50);
+  if(e50){ if(price > e50){ score += 22; reasons.push('দাম EMA50-এর ওপরে (uptrend)'); } else { score -= 22; reasons.push('দাম EMA50-এর নিচে (downtrend)'); } }
+  if(e9 && e21){ if(e9 > e21){ score += 18; reasons.push('EMA9 > EMA21 (short-term bullish)'); } else { score -= 18; reasons.push('EMA9 < EMA21 (short-term bearish)'); } }
+  const md = macdData(closes); const mh = last(md.hist), mhp = md.hist[md.hist.length-2];
+  if(mh !== null && mh !== undefined){ let pts = mh > 0 ? 14 : -14;
+    if(mhp !== null && mhp !== undefined && ((mh > mhp && mh > 0) || (mh < mhp && mh < 0))) pts += mh > 0 ? 4 : -4;
+    score += pts; reasons.push(`MACD ${mh > 0 ? 'bullish' : 'bearish'}`); }
+  const r = last(rsiArr(closes));
+  if(r !== null){ if(r >= 55 && r <= 70){ score += 10; reasons.push(`RSI ${r.toFixed(0)} (bullish momentum)`); }
+    else if(r > 70){ score -= 8; reasons.push(`RSI ${r.toFixed(0)} (overbought — সতর্ক)`); }
+    else if(r >= 30 && r < 45){ score -= 10; reasons.push(`RSI ${r.toFixed(0)} (bearish momentum)`); }
+    else if(r < 30){ score += 8; reasons.push(`RSI ${r.toFixed(0)} (oversold — bounce সম্ভব)`); }
+    else score += r >= 50 ? 4 : -4; }
+  const bb = bollPos(closes);
+  if(bb !== null){ if(bb > 0.85){ score += 6; reasons.push('Bollinger উপরের ব্যান্ডের কাছে (strong momentum)'); }
+    else if(bb < 0.15){ score -= 6; reasons.push('Bollinger নিচের ব্যান্ডের কাছে (weak)'); } }
+  const [ps, pn] = candlePattern(candlesAll);
+  if(pn){ score += ps; reasons.push('Pattern: ' + pn); }
+  if(vols.length >= 21){ const avg = vols.slice(-21,-1).reduce((a,b)=>a+b,0)/20;
+    if(avg > 0){ const ratio = vols[vols.length-1]/avg;
+      if(ratio > 1.3){ score += (e9 && e21 && e9 > e21) ? 8 : -8; reasons.push(`Volume স্বাভাবিকের ${ratio.toFixed(1)}x (move-এ জোর আছে)`); } } }
+  const recent = closed.slice(-50);
+  return {score: Math.max(-100, Math.min(100, Math.round(score*10)/10)), reasons,
+    rsi: r, support: Math.min(...recent.map(x=>x.l)), resistance: Math.max(...recent.map(x=>x.h))};
+}
+</script>
+<script>
+'use strict';
+/* ============================== news ============================== */
+const FEEDS = [
+  ['CoinDesk', 1.0, 'https://www.coindesk.com/arc/outboundfeeds/rss/'],
+  ['CoinTelegraph', 0.8, 'https://cointelegraph.com/rss'],
+  ['Decrypt', 0.8, 'https://decrypt.co/feed'],
+  ['Bitcoin Magazine', 0.7, 'https://bitcoinmagazine.com/feed'],
+  ['Google News', 0.6, 'https://news.google.com/rss/search?q=bitcoin+cryptocurrency&hl=en-US&gl=US&ceid=US:en'],
+];
+const BULL = {'etf approval':3,'approved':1.5,'approval':1.5,'all-time high':2,'surge':2,'surg':1.5,'rally':2,'bullish':2,'adoption':1.5,'institutional':1,'inflow':2,'listing':1,'listed':1,'partnership':1.5,'soars':2,'soar':2,'jumps':1.5,'jump':1,'gains':1,'gain':1,'breakout':1.5,'accumulat':1.5,'buys':1,'buying':1,'record high':2,'upgrade':1,'integration':1,'reserve':1,'treasury buys':2};
+const BEAR = {'hack':3,'exploit':3,'stolen':2.5,'ban':2.5,'bans':2.5,'lawsuit':2,'sues':2,'fraud':2.5,'scam':2,'bankrupt':3,'crash':2.5,'plunge':2.5,'plunges':2.5,'tumbles':2,'liquidation':2,'outflow':2,'bearish':2,'falls':1.5,'fall':1,'drops':1.5,'drop':1,'dumps':2,'sell-off':2,'selloff':2,'warning':1,'arrest':2,'probe':1.5,'investigat':1.5,'delist':2,'halt':1.5,'fears':1,'recession':1.5,'tariff':1,'sanction':1.5};
+const DANGER = ['hack','exploit','bankrupt','stolen','fraud','crash','plunge','ban'];
+const COIN_KEYS = {BTC:['bitcoin','btc'], ETH:['ethereum','eth','ether']};
+async function fetchJSON(url, ms=12000){ const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), ms);
+  try{ const r = await fetch(url, {signal: ctl.signal}); if(!r.ok) throw new Error(r.status); return await r.json(); }
+  finally{ clearTimeout(t); } }
+async function fetchText(url, ms=12000){ const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), ms);
+  try{ const r = await fetch(url, {signal: ctl.signal}); if(!r.ok) throw new Error(r.status); return await r.text(); }
+  finally{ clearTimeout(t); } }
+async function fetchFeedItems(url){
+  // 1) rss2json (fast, CORS-open, no key)
+  try{ const d = await fetchJSON('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(url));
+    if(d && d.status === 'ok' && d.items) return d.items.map(it=>({title: it.title, link: it.link, ts: new Date(it.pubDate.replace(' ','T') + 'Z')})); }catch(e){}
+  // 2) allorigins raw XML
+  try{ const xml = await fetchText('https://api.allorigins.win/raw?url=' + encodeURIComponent(url), 20000);
+    const doc = new DOMParser().parseFromString(xml, 'text/xml'); const out = [];
+    doc.querySelectorAll('item').forEach(it=>{ const g = s => { const n = it.querySelector(s); return n ? n.textContent.trim() : ''; };
+      out.push({title: g('title'), link: g('link'), ts: new Date(g('pubDate'))}); });
+    if(out.length) return out; }catch(e){}
+  return [];
+}
+async function loadNews(){
+  const now = new Date(); const base = state.symbol.replace('USDT','');
+  const raw = [];
+  await Promise.all(FEEDS.map(async ([name, w, url])=>{
+    const items = await fetchFeedItems(url);
+    for(const it of items){ if(!it.title || isNaN(it.ts)) continue;
+      const age = Math.max(0, (now - it.ts)/60000); if(age > 1440) continue;
+      raw.push({title: it.title, link: it.link, source: name, weight: w, age}); }
+  }));
+  raw.sort((a,b)=>a.age-b.age);
+  const seen = new Set(); const uniq = [];
+  for(const it of raw){ let t = it.title.toLowerCase(); if(t.includes(' - ')) t = t.rsplit ? t : t.slice(0, t.lastIndexOf(' - '));
+    const key = t.replace(/[^a-z0-9 ]/g,'').slice(0,60).trim(); if(seen.has(key)) continue; seen.add(key); uniq.push(it); }
+  let agg = 0, bull = 0, bear = 0, danger = null; const scored = [];
+  for(const it of uniq){ const text = it.title.toLowerCase(); let s = 0;
+    for(const k in BULL) if(text.includes(k)) s += BULL[k];
+    for(const k in BEAR) if(text.includes(k)) s -= BEAR[k];
+    s = Math.max(-4, Math.min(4, s)) / 4;
+    const relevant = (COIN_KEYS[base]||[]).some(k=>text.includes(k));
+    const general = Object.values(COIN_KEYS).flat().some(k=>text.includes(k)) || text.includes('crypto') || text.includes('market');
+    const cw = relevant ? 1 : (general ? 0.6 : 0.25);
+    const fresh = Math.pow(0.5, it.age/180);
+    agg += s * it.weight * cw * fresh;
+    if(s > 0.15) bull++; else if(s < -0.15) bear++;
+    if(DANGER.some(d=>text.includes(d)) && s < -0.3 && it.age <= 240 && (!danger || it.age < danger.age))
+      danger = {title: it.title, source: it.source, age: Math.round(it.age)};
+    if(relevant || Math.abs(s) >= 0.25) scored.push({...it, s, label: s > 0.15 ? 'bullish' : (s < -0.15 ? 'bearish' : 'neutral')});
+  }
+  state.news = {score: Math.round(100 * Math.tanh(agg/3) * 10)/10, items: scored.slice(0,12), bull, bear, danger, loaded: true};
+  renderNews(); renderFusion();
+}
+function renderNews(){
+  const n = state.news;
+  document.getElementById('newsScore').innerHTML = n.loaded
+    ? `News score: <b>${n.score > 0 ? '+' : ''}${n.score}</b> · ${n.bull} bullish vs ${n.bear} bearish headlines (শেষ 24 ঘণ্টা)`
+    : 'নিউজ লোড হচ্ছে…';
+  document.getElementById('newsList').innerHTML = n.items.length ? n.items.map(it=>
+    `<div class="newsitem"><a href="${it.link}" target="_blank" rel="noopener">${it.title}</a>
+     <div class="newsmeta">${it.source} · ${Math.round(it.age)} মিনিট আগে · <span class="tag ${it.label}">${it.label}</span></div></div>`).join('')
+    : 'এই মুহূর্তে প্রাসঙ্গিক খবর পাওয়া যায়নি — নিউজ score 0 ধরা হয়েছে।';
+}
+
+/* ============================== fusion ============================== */
+function setBar(id, v){ const el = document.getElementById(id); const a = Math.abs(v);
+  el.style.width = (a/2) + '%'; el.style.left = v < 0 ? (50 - a/2) + '%' : '50%';
+  el.style.background = v >= 0 ? 'var(--up)' : 'var(--down)'; }
+function computeFusion(){
+  let tech = 0, ok = false; state.tfScores = {};
+  for(const tf of TFS_FUSION){ const cs = state.candles[tf]; if(!cs || cs.length < 70) continue;
+    const r = scoreTF(cs); if(!r) continue; state.tfScores[tf] = r; tech += TF_W[tf] * r.score; ok = true; }
+  if(!ok) return null;
+  let ctx = 0; const ctxR = [];
+  if(state.fng){ ctx += Math.max(-30, Math.min(30, (state.fng.value - 50) * 0.6)); ctxR.push(`Fear & Greed: ${state.fng.value} (${state.fng.label})`); }
+  if(state.ticker){ const chg = state.ticker.change; ctx += Math.max(-25, Math.min(25, chg * 4)); ctxR.push(`24h change: ${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`); }
+  ctx = Math.max(-100, Math.min(100, Math.round(ctx*10)/10));
+  const newsScore = state.news.loaded ? state.news.score : 0;
+  const final = Math.round((0.70*tech + 0.20*newsScore + 0.10*ctx) * 10)/10;
+  let signal = final >= 25 ? 'UP' : (final <= -25 ? 'DOWN' : 'NO TRADE');
+  let veto = null;
+  if(state.news.danger && signal === 'UP'){ veto = `সতর্ক: ${state.news.danger.age} মিনিট আগে বড় নেতিবাচক খবর (${state.news.danger.source}) — UP সিগন্যাল বাতিল`; signal = 'NO TRADE'; }
+  const reasons = [];
+  for(const tf of ['5m','15m','1h']){ const r = state.tfScores[tf]; if(r) for(const x of r.reasons.slice(0,2)) reasons.push(`[${tf}] ${x}`); }
+  if(newsScore > 10) reasons.push(`নিউজ sentiment bullish (score ${newsScore > 0 ? '+' : ''}${newsScore}, ${state.news.bull} bullish vs ${state.news.bear} bearish)`);
+  else if(newsScore < -10) reasons.push(`নিউজ sentiment bearish (score ${newsScore}, ${state.news.bull} bullish vs ${state.news.bear} bearish)`);
+  else reasons.push(`নিউজ sentiment প্রায় neutral (score ${newsScore > 0 ? '+' : ''}${newsScore})`);
+  reasons.push(...ctxR); if(veto) reasons.push(veto);
+  return {tech: Math.round(tech*10)/10, news: newsScore, ctx, final, signal, veto, reasons};
+}
+function renderFusion(){
+  const f = computeFusion(); if(!f) return;
+  const el = document.getElementById('finalSig');
+  el.textContent = f.signal === 'UP' ? '▲ UP' : (f.signal === 'DOWN' ? '▼ DOWN' : '● NO TRADE');
+  el.style.color = f.signal === 'UP' ? 'var(--up)' : (f.signal === 'DOWN' ? 'var(--down)' : 'var(--flat)');
+  document.getElementById('fTech').textContent = f.tech;
+  document.getElementById('fNews').textContent = state.news.loaded ? f.news : 'লোড হচ্ছে…';
+  document.getElementById('fCtx').textContent = f.ctx;
+  document.getElementById('fFinal').textContent = f.final;
+  setBar('fTechBar', f.tech); setBar('fNewsBar', f.news); setBar('fCtxBar', f.ctx);
+  document.getElementById('fNote').textContent = 'Confidence (score-based): ' + Math.min(95, Math.abs(f.final)) + '%';
+  document.getElementById('vetoBox').innerHTML = f.veto ? `<div class="veto">⛔ ${f.veto}</div>` : '';
+  document.getElementById('reasons').innerHTML = f.reasons.map(r=>`<li>${r}</li>`).join('');
+}
+
+/* ============================== data loops ============================== */
+async function fetchKlines(tf, limit=300){
+  const d = await fetchJSON(`${BINANCE}/api/v3/klines?symbol=${state.symbol}&interval=${tf}&limit=${limit}`);
+  return d.map(k=>({t:k[0], o:+k[1], h:+k[2], l:+k[3], c:+k[4], v:+k[5]}));
+}
+async function refreshCandles(){
+  const tfs = [...new Set([state.tf, ...TFS_FUSION])];
+  await Promise.all(tfs.map(async tf=>{ try{ state.candles[tf] = await fetchKlines(tf); }catch(e){} }));
+  renderRatings(); renderFusion();
+  document.getElementById('status').textContent = 'শেষ আপডেট: ' + new Date().toLocaleTimeString();
+}
+async function refreshTicker(){
+  try{ const d = await fetchJSON(`${BINANCE}/api/v3/ticker/24hr?symbol=${state.symbol}`);
+    state.ticker = {price: +d.lastPrice, change: +d.priceChangePercent};
+    const p = document.getElementById('price');
+    const old = parseFloat(p.dataset.v || 'NaN');
+    p.textContent = '$' + state.ticker.price.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2});
+    p.style.color = !isNaN(old) && state.ticker.price !== old ? (state.ticker.price > old ? 'var(--up)' : 'var(--down)') : 'var(--txt)';
+    p.dataset.v = state.ticker.price;
+    const ch = document.getElementById('chg24');
+    ch.textContent = (state.ticker.change >= 0 ? '▲ +' : '▼ ') + state.ticker.change.toFixed(2) + '% (24h)';
+    ch.style.color = state.ticker.change >= 0 ? 'var(--up)' : 'var(--down)';
+    renderFusion();
+  }catch(e){}
+}
+async function refreshFNG(){
+  try{ const d = await fetchJSON('https://api.alternative.me/fng/?limit=1');
+    state.fng = {value: +d.data[0].value, label: d.data[0].value_classification}; renderFusion(); }catch(e){}
+}
+async function runBacktest(){
+  try{
+    const candles = await fetchKlines('5m', 1000);
+    const run = (thresh, expiry)=>{
+      let trades = 0, wins = 0, losses = 0, eq = 0; let i = 130;
+      while(i + expiry < candles.length){
+        const win = candles.slice(Math.max(0, i-130), i+1);
+        const r = scoreTF(win.concat([candles[i]]));
+        if(r && Math.abs(r.score) >= thresh){
+          const entry = win[win.length-1].c, ex = candles[i+expiry].c;
+          if(ex !== entry){ const won = r.score > 0 ? ex > entry : ex < entry;
+            if(won){ wins++; eq += 0.85; } else { losses++; eq -= 1; } trades++; }
+          i += expiry + 1;
+        } else i++;
+      }
+      const wr = wins + losses ? wins/(wins+losses)*100 : 0;
+      return {trades, wr, eq};
+    };
+    const a = run(30, 1), b = run(30, 3);
+    const line = (x, label)=>`${label}: <b style="color:var(--txt)">${x.trades} trades</b> · win rate <b style="color:${x.wr > 54.05 ? 'var(--up)' : 'var(--down)'}">${x.wr.toFixed(2)}%</b> · net ${x.eq >= 0 ? '+' : ''}${x.eq.toFixed(1)} units → ${x.wr > 54.05 ? 'break-even এর ওপরে' : 'break-even এর নিচে (edge নেই)'}`;
+    document.getElementById('btBody').innerHTML = line(a,'5-minute expiry') + '<br>' + line(b,'15-minute expiry') +
+      '<br>In-sample ফল মাত্র — আসল প্রমাণ হবে forward demo testing-এ। (Prototype v1 Python সংস্করণের সংখ্যার সঙ্গে মিলিয়ে দেখা হয়েছে।)';
+  }catch(e){ document.getElementById('btBody').textContent = 'Backtest লোড হয়নি — পরে আবার চেষ্টা হবে।'; }
+}
+/* symbol / timeframe switching */
+document.getElementById('symBtns').addEventListener('click', e=>{
+  const b = e.target.closest('[data-sym]'); if(!b) return;
+  document.querySelectorAll('#symBtns .btn').forEach(x=>x.classList.toggle('active', x===b));
+  state.symbol = b.dataset.sym; state.candles = {}; state.ticker = null;
+  refreshTicker(); refreshCandles(); loadNews(); runBacktest();
+});
+document.getElementById('tfBtns').addEventListener('click', e=>{
+  const b = e.target.closest('[data-tf]'); if(!b) return;
+  document.querySelectorAll('#tfBtns .btn').forEach(x=>x.classList.toggle('active', x===b));
+  state.tf = b.dataset.tf; refreshCandles();
+});
+/* init + intervals */
+refreshTicker(); refreshCandles(); refreshFNG(); loadNews(); runBacktest();
+setInterval(refreshTicker, 5000);
+setInterval(refreshCandles, 15000);
+setInterval(loadNews, 300000);
+setInterval(refreshFNG, 600000);
+setInterval(runBacktest, 900000);
+</script>
+</body>
+</html>

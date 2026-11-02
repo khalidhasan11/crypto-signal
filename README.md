@@ -1,47 +1,52 @@
 # Crypto Signal — Live (News + Chart)
 
-TradingView-স্টাইলের instant Buy/Sell technical rating (Oscillators +
-Moving Averages gauges, timeframe অনুযায়ী লাইভ আপডেট) — তার সঙ্গে লাইভ
-ক্রিপ্টো নিউজ sentiment মিলিয়ে একটা final fusion signal:
+TradingView-style instant Buy/Sell technical ratings (Oscillators +
+Moving Averages gauges, updated live per timeframe), fused with real-time
+news sentiment into one final signal:
 **Technical 70% + News 20% + Market context 10%**.
 
 🔗 Live: https://khalidhasan11.github.io/crypto-signal/
 
-## যা যা করে
+## What it does
 
-- **Chart Buy/Sell markers (v2):** TradingView indicator-এর মতো চার্টের
-  ওপরেই BUY/SELL লেবেল — EMA 5/13 crossover + RSI 14 filter, শুধু closed
-  candle-এ (repaint হয় না)। চার্টের নিচে live position bar: Status
-  (LONG/SHORT), Entry, Stop Loss (শেষ 14 candle-এর swing), Take Profit
-  (R:R 3:1), বর্তমান R। SL/TP/Entry লাইন চার্টে আঁকা থাকে, TP/SL hit
-  হলে marker পড়ে, আর নিচে সিগন্যালগুলোর হিসাব (TP/SL/reverse সংখ্যা)।
-- **Instant gauges:** 11টি oscillator (RSI, Stochastic, CCI, ADX, MACD,
+- **Chart Buy/Sell markers (v2):** BUY/SELL labels directly on the chart,
+  like a TradingView indicator — EMA 5/13 crossover + RSI 14 filter, on
+  closed candles only (never repaints). Below the chart, a live position
+  bar: Status (LONG/SHORT), Entry, Stop Loss (last-14-candle swing),
+  Take Profit (R:R 3:1), and current R. Entry/SL/TP lines are drawn on
+  the chart, TP/SL hits get markers, and a stats line below counts the
+  signals (TP / SL / reversed). The position bar sits under the chart
+  (not overlaid) so it never covers the candles.
+- **Instant gauges:** 11 oscillators (RSI, Stochastic, CCI, ADX, MACD,
   Stochastic RSI, Williams %R, Awesome Oscillator, Momentum, Bull Bear
-  Power, Ultimate Oscillator) + 14টি moving average (SMA/EMA 5–200,
-  VWMA, Ichimoku) — প্রতিটার Buy/Sell/Neutral action সহ।
-- **Timeframes:** ড্রপডাউন মেনু থেকে 17টি — সেকেন্ড (1s native; 5s/15s/30s 1s candle থেকে live aggregation), মিনিট (1m–30m), ঘণ্টা (1h–12h), দিন/সপ্তাহ (1d/3d/1w); BTC ও ETH।
+  Power, Ultimate Oscillator) + 14 moving averages (SMA/EMA 5–200,
+  VWMA, Ichimoku) — each with its own Buy/Sell/Neutral action.
+- **Timeframes:** 17 options in an expandable dropdown menu — Seconds
+  (1s native; 5s/15s/30s aggregated live from 1s candles), Minutes
+  (1m–30m), Hours (1h–12h), Days/Weeks (1d/3d/1w); BTC and ETH.
 - **News layer:** CoinDesk, CoinTelegraph, Decrypt, Bitcoin Magazine,
-  Google News (RSS via rss2json, fallback allorigins) — keyword sentiment,
-  সোর্সের ওজন, freshness decay, একই খবরের dedupe, বড় নেতিবাচক ঘটনায়
-  (hack/bankruptcy/ban) UP সিগন্যালে **danger veto**।
-- **Fusion signal:** UP / DOWN / NO TRADE + কারণের তালিকা।
-- **Backtest:** 5m chart-এ technical-only backtest, 85% payout-এর
-  break-even (54.05%) এর সঙ্গে তুলনা।
+  Google News (RSS via rss2json, allorigins fallback) — keyword
+  sentiment, source-credibility weighting, freshness decay, duplicate
+  story dedupe, and a **danger veto**: a fresh major negative event
+  (hack/bankruptcy/ban) cancels an UP signal.
+- **Fusion signal:** UP / DOWN / NO TRADE with a list of reasons.
+- **Backtest:** technical-only backtest on the 5m chart, compared
+  against the 85%-payout break-even win rate (54.05%).
 
-## ডেটা (সব ফ্রি, key লাগে না)
+## Data (all free, no API keys)
 
 - Binance public market data (`data-api.binance.vision`, CORS-open)
 - Fear & Greed Index (`api.alternative.me`)
-- RSS news উপরোক্ত ফিডগুলো থেকে
+- RSS news from the feeds listed above
 
-## সৎ সীমাবদ্ধতা
+## Honest limitations
 
-- এটি educational prototype — কোনো rating profit guarantee করে না।
-- v1 backtest-এ BTC 5-minute expiry-র win rate break-even-এর নিচে ছিল;
-  15-minute expiry সামান্য ওপরে (in-sample মাত্র)। আসল যাচাই হবে
-  forward demo/paper testing-এ।
-- Quotex OTC দাম ব্রোকার-তৈরি ও তাদের কোনো অফিসিয়াল API নেই — এই টুল
-  আসল মার্কেট (Binance) বিশ্লেষণ করে।
+- This is an educational prototype — no rating guarantees profit.
+- In the v1 backtest, BTC 5-minute expiry win rate was below break-even;
+  15-minute expiry was slightly above (in-sample only). The real verdict
+  will come from forward demo/paper testing.
+- Quotex OTC prices are broker-generated and Quotex has no official
+  API — this tool analyzes the real market (Binance).
 
-Python সংস্করণ (engine + local dashboard): `crypto-signal-prototype`
-লোকাল প্রজেক্ট ফোল্ডারে।
+The Python version (engine + local dashboard) lives in the local
+`crypto-signal-prototype` project folder.

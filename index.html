@@ -54,8 +54,8 @@
   #status{color:var(--dim);font-size:12px}
   .chartwrap{position:relative;width:100%}
   #chart{width:100%;height:360px;display:block;background:#0a0f1a;border:1px solid var(--line);border-radius:10px}
-  .pospanel{position:absolute;top:10px;right:10px;background:rgba(10,15,26,.88);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;min-width:168px;backdrop-filter:blur(2px)}
-  .pprow{display:flex;justify-content:space-between;gap:14px;padding:2px 0}
+  .pospanel{display:flex;flex-wrap:wrap;gap:4px 22px;background:#0a0f1a;border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:13px;margin-top:10px}
+  .pprow{display:flex;gap:8px;padding:2px 0}
   .pprow span{color:var(--dim)}
   .newsscore{text-align:center;font-size:15px;margin:4px 0 8px}
 </style>
@@ -91,14 +91,14 @@
   <h3 style="text-align:left">📈 Chart — Buy/Sell Signal <span style="color:var(--dim);font-size:12px">(EMA 5/13 crossover + RSI 14 filter · শুধু closed candle-এ সিগন্যাল, repaint হয় না)</span></h3>
   <div class="chartwrap">
     <canvas id="chart"></canvas>
-    <div class="pospanel" id="posPanel">
-      <div class="pprow"><span>Status:</span><b id="ppStatus">—</b></div>
-      <div class="pprow"><span>Entry:</span><b id="ppEntry">—</b></div>
-      <div class="pprow"><span>Stop Loss:</span><b id="ppSL" style="color:var(--down)">—</b></div>
-      <div class="pprow"><span>Take Profit:</span><b id="ppTP" style="color:var(--up)">—</b></div>
-      <div class="pprow"><span>R:R:</span><b id="ppRR">3:1</b></div>
-      <div class="pprow"><span>এখন:</span><b id="ppNow">—</b></div>
-    </div>
+  </div>
+  <div class="pospanel" id="posPanel">
+    <div class="pprow"><span>Status:</span><b id="ppStatus">—</b></div>
+    <div class="pprow"><span>Entry:</span><b id="ppEntry">—</b></div>
+    <div class="pprow"><span>Stop Loss:</span><b id="ppSL" style="color:var(--down)">—</b></div>
+    <div class="pprow"><span>Take Profit:</span><b id="ppTP" style="color:var(--up)">—</b></div>
+    <div class="pprow"><span>R:R:</span><b id="ppRR">3:1</b></div>
+    <div class="pprow"><span>এখন:</span><b id="ppNow">—</b></div>
   </div>
   <div id="sigStats" style="font-size:13px;color:var(--dim);margin-top:8px">সিগন্যাল হিস্টরি লোড হচ্ছে…</div>
 </div>

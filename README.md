@@ -11,7 +11,7 @@ Moving Averages gauges, timeframe অনুযায়ী লাইভ আপ�
 
 - **Chart Buy/Sell markers (v2):** TradingView indicator-এর মতো চার্টের
   ওপরেই BUY/SELL লেবেল — EMA 5/13 crossover + RSI 14 filter, শুধু closed
-  candle-এ (repaint হয় না)। ডান-ওপরে live position panel: Status
+  candle-এ (repaint হয় না)। চার্টের নিচে live position bar: Status
   (LONG/SHORT), Entry, Stop Loss (শেষ 14 candle-এর swing), Take Profit
   (R:R 3:1), বর্তমান R। SL/TP/Entry লাইন চার্টে আঁকা থাকে, TP/SL hit
   হলে marker পড়ে, আর নিচে সিগন্যালগুলোর হিসাব (TP/SL/reverse সংখ্যা)।

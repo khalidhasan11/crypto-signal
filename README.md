@@ -9,6 +9,12 @@ Moving Averages gauges, timeframe অনুযায়ী লাইভ আপ�
 
 ## যা যা করে
 
+- **Chart Buy/Sell markers (v2):** TradingView indicator-এর মতো চার্টের
+  ওপরেই BUY/SELL লেবেল — EMA 5/13 crossover + RSI 14 filter, শুধু closed
+  candle-এ (repaint হয় না)। ডান-ওপরে live position panel: Status
+  (LONG/SHORT), Entry, Stop Loss (শেষ 14 candle-এর swing), Take Profit
+  (R:R 3:1), বর্তমান R। SL/TP/Entry লাইন চার্টে আঁকা থাকে, TP/SL hit
+  হলে marker পড়ে, আর নিচে সিগন্যালগুলোর হিসাব (TP/SL/reverse সংখ্যা)।
 - **Instant gauges:** 11টি oscillator (RSI, Stochastic, CCI, ADX, MACD,
   Stochastic RSI, Williams %R, Awesome Oscillator, Momentum, Bull Bear
   Power, Ultimate Oscillator) + 14টি moving average (SMA/EMA 5–200,

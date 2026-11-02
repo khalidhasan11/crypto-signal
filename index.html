@@ -75,12 +75,12 @@
     <button class="btn" data-sym="ETHUSDT">ETH / USDT</button>
   </div>
 </header>
-<div class="sub">TradingView-style instant Buy/Sell ratings — updated every few seconds from oscillators + moving averages, fused with live news sentiment into the final signal. <span id="status">connecting…</span></div>
+<div class="sub">TradingView-style instant Buy/Sell ratings — streaming live, the chart updates every second from oscillators + moving averages, fused with live news sentiment into the final signal. <span id="status">connecting…</span></div>
 
 <div class="pricewrap">
   <div class="price" id="price">—</div>
   <div class="chg" id="chg24">—</div>
-  <div class="live">LIVE</div>
+  <div class="live">LIVE <span id="liveMode" style="color:var(--dim);font-weight:400"></span></div>
   <div class="tfmenu">
     <button class="btn tfmenubtn" id="tfMenuBtn">Timeframe: <b id="tfCur">5m</b> ▾</button>
     <div class="tfdrop" id="tfDrop" hidden>
@@ -521,8 +521,19 @@ function renderFusion(){
 }
 
 /* ============================== data loops ============================== */
+const AGG_TFS = ['5s','15s','30s'];
+function aggregate1s(objs, factor, limit){
+  const buckets = new Map();
+  for(const k of objs){
+    const bt = Math.floor(k.t / (factor * 1000)) * (factor * 1000);
+    const b = buckets.get(bt);
+    if(!b) buckets.set(bt, {t: bt, o: k.o, h: k.h, l: k.l, c: k.c, v: k.v});
+    else { b.h = Math.max(b.h, k.h); b.l = Math.min(b.l, k.l); b.c = k.c; b.v += k.v; }
+  }
+  return [...buckets.values()].sort((a,b)=>a.t-b.t).slice(-limit);
+}
 async function fetchKlines(tf, limit=300){
-  if(tf === '5s' || tf === '15s' || tf === '30s'){
+  if(AGG_TFS.includes(tf)){
     // Binance has no native 5s/15s/30s candles — aggregate live from 1s candles.
     const factor = parseInt(tf, 10);
     const pages = Math.ceil(limit * factor / 1000);
@@ -535,14 +546,8 @@ async function fetchKlines(tf, limit=300){
     const byT = new Map();
     for(const part of parts) for(const k of part) if(!byT.has(k[0])) byT.set(k[0], k);
     const ones = [...byT.values()].sort((a,b)=>a[0]-b[0]);
-    const buckets = new Map();
-    for(const k of ones){
-      const bt = Math.floor(k[0] / (factor * 1000)) * (factor * 1000);
-      const b = buckets.get(bt);
-      if(!b) buckets.set(bt, {t: bt, o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5]});
-      else { b.h = Math.max(b.h, +k[2]); b.l = Math.min(b.l, +k[3]); b.c = +k[4]; b.v += +k[5]; }
-    }
-    return [...buckets.values()].sort((a,b)=>a.t-b.t).slice(-limit);
+    state._oneSec = ones.map(k=>({t: k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5]}));
+    return aggregate1s(state._oneSec, factor, limit);
   }
   const d = await fetchJSON(`${BINANCE}/api/v3/klines?symbol=${state.symbol}&interval=${tf}&limit=${limit}`);
   return d.map(k=>({t:k[0], o:+k[1], h:+k[2], l:+k[3], c:+k[4], v:+k[5]}));
@@ -554,7 +559,7 @@ async function refreshSelectedTF(){
 async function refreshCandles(){
   const tfs = [...new Set([state.tf, ...TFS_FUSION])];
   await Promise.all(tfs.map(async tf=>{ try{ state.candles[tf] = await fetchKlines(tf); }catch(e){} }));
-  renderRatings(); renderFusion(); renderChart();
+  renderRatings(); renderFusion(); renderChart(); ensureLive();
   document.getElementById('status').textContent = 'Last update: ' + new Date().toLocaleTimeString();
 }
 async function refreshTicker(){
@@ -604,6 +609,7 @@ document.getElementById('symBtns').addEventListener('click', e=>{
   const b = e.target.closest('[data-sym]'); if(!b) return;
   document.querySelectorAll('#symBtns .btn').forEach(x=>x.classList.toggle('active', x===b));
   state.symbol = b.dataset.sym; state.candles = {}; state.ticker = null;
+  state._liveKey = null; state._oneSec = null; stopStream(); stopPoll(); setLiveMode('');
   refreshTicker(); refreshCandles(); loadNews(); runBacktest();
 });
 const tfDrop = document.getElementById('tfDrop');
@@ -622,6 +628,97 @@ tfDrop.addEventListener('click', e=>{
   tfDrop.hidden = true;
   refreshCandles();
 });
+/* ================= live engine: WebSocket stream + 1s polling fallback ================= */
+function baseInterval(){ return (AGG_TFS.includes(state.tf) || state.tf === '1s') ? '1s' : state.tf; }
+function patchCandle(arr, cd){
+  if(!arr || !arr.length) return;
+  const lastC = arr[arr.length - 1];
+  if(cd.t === lastC.t) arr[arr.length - 1] = cd;
+  else if(cd.t > lastC.t){ arr.push(cd); if(arr.length > 1500) arr.splice(0, arr.length - 1500); }
+}
+function setLiveMode(m){
+  state.liveMode = m;
+  const el = document.getElementById('liveMode');
+  if(el) el.textContent = m === 'ws' ? '· stream' : (m === 'poll' ? '· 1s polling' : '');
+}
+function liveRender(){
+  const now = Date.now();
+  if(now - (state._lastRender || 0) < 400) return;
+  state._lastRender = now;
+  renderRatings(); renderChart();
+}
+function applyStreamCandle(cd){
+  if(AGG_TFS.includes(state.tf)){
+    if(!state._oneSec) state._oneSec = [];
+    patchCandle(state._oneSec, cd);
+    state.candles[state.tf] = aggregate1s(state._oneSec, parseInt(state.tf, 10), 300);
+  } else {
+    patchCandle(state.candles[state.tf], cd);
+    if(state.tf === '1s') state._oneSec = state.candles['1s'];
+  }
+  liveRender();
+}
+let wsWatchdog = null;
+function stopStream(){
+  clearTimeout(wsWatchdog);
+  if(state._ws){ try{ state._ws.onclose = null; state._ws.close(); }catch(e){} state._ws = null; }
+}
+function stopPoll(){ if(state._pollTimer){ clearTimeout(state._pollTimer); state._pollTimer = null; } }
+function enterPoll(){ if(state.liveMode === 'poll') return; setLiveMode('poll'); stopStream(); startPoll(); }
+function startPoll(){
+  stopPoll();
+  const tick = async () => {
+    if(state.liveMode !== 'poll') return;
+    state._pollCount = (state._pollCount || 0) + 1;
+    try{
+      if(AGG_TFS.includes(state.tf)){
+        const d = await fetchJSON(`${BINANCE}/api/v3/klines?symbol=${state.symbol}&interval=1s&limit=1000`);
+        const byT = new Map((state._oneSec || []).map(x=>[x.t, x]));
+        for(const k of d) byT.set(k[0], {t: k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5]});
+        state._oneSec = [...byT.values()].sort((a,b)=>a.t-b.t).slice(-9500);
+        state.candles[state.tf] = aggregate1s(state._oneSec, parseInt(state.tf, 10), 300);
+      } else {
+        state.candles[state.tf] = await fetchKlines(state.tf);
+      }
+      renderRatings(); renderChart();
+    }catch(e){}
+    state._pollTimer = setTimeout(tick, 1000);
+  };
+  tick();
+}
+function connectStream(){
+  const key = state.symbol + '|' + baseInterval();
+  if(state._liveKey === key && state._ws && state._ws.readyState <= 1) return;
+  stopStream(); stopPoll(); if(state.liveMode === 'poll') setLiveMode('');
+  state._liveKey = key;
+  const hosts = ['wss://data-stream.binance.vision', 'wss://stream.binance.com:9443'];
+  let hostIdx = 0, gotMsg = false;
+  const open = () => {
+    let ws;
+    try{ ws = new WebSocket(hosts[hostIdx] + '/ws/' + state.symbol.toLowerCase() + '@kline_' + baseInterval()); }
+    catch(e){ enterPoll(); return; }
+    state._ws = ws;
+    ws.onmessage = ev => {
+      gotMsg = true;
+      if(state.liveMode !== 'ws'){ setLiveMode('ws'); stopPoll(); }
+      try{
+        const d = JSON.parse(ev.data);
+        if(d && d.k){ const k = d.k; applyStreamCandle({t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, v: +k.v}); }
+      }catch(e){}
+    };
+    ws.onclose = () => {
+      if(state._liveKey !== key) return;
+      if(!gotMsg && hostIdx < hosts.length - 1){ hostIdx++; open(); }
+      else enterPoll();
+    };
+    ws.onerror = () => { try{ ws.close(); }catch(e){} };
+    clearTimeout(wsWatchdog);
+    wsWatchdog = setTimeout(()=>{ if(!gotMsg) enterPoll(); }, 7000);
+  };
+  open();
+}
+function ensureLive(){ connectStream(); }
+
 /* ================= chart: Buy/Sell signal strategy ================= */
 const SIG_RR = 3, SIG_SWING = 14;
 function computeSignals(closed){
@@ -759,7 +856,6 @@ window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(re
 refreshTicker(); refreshCandles(); refreshFNG(); loadNews(); runBacktest();
 setInterval(refreshTicker, 5000);
 setInterval(refreshCandles, 15000);
-setInterval(()=>{ if(state.tf.endsWith('s')) refreshSelectedTF(); }, 4000);
 setInterval(loadNews, 300000);
 setInterval(refreshFNG, 600000);
 setInterval(runBacktest, 900000);

@@ -17,6 +17,7 @@ news sentiment into one final signal:
   the chart, TP/SL hits get markers, and a stats line below counts the
   signals (TP / SL / reversed). The position bar sits under the chart
   (not overlaid) so it never covers the candles.
+- **Live updates:** the chart streams over a Binance WebSocket (updates pushed several times per second); if the stream is blocked, it automatically falls back to 1-second REST polling — either way the forming candle updates every second. The header shows the active mode (`· stream` / `· 1s polling`).
 - **Instant gauges:** 11 oscillators (RSI, Stochastic, CCI, ADX, MACD,
   Stochastic RSI, Williams %R, Awesome Oscillator, Momentum, Bull Bear
   Power, Ultimate Oscillator) + 14 moving averages (SMA/EMA 5–200,

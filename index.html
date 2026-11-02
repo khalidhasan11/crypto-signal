@@ -52,6 +52,13 @@
   .newsmeta{color:var(--dim);font-size:11.5px;margin-top:2px}
   .foot{color:var(--dim);font-size:12px;text-align:center;margin:8px 0 26px;line-height:1.65}
   #status{color:var(--dim);font-size:12px}
+  .tfmenu{position:relative}
+  .tfmenubtn{border-color:var(--accent);color:var(--accent);font-weight:600}
+  .tfmenubtn b{color:var(--txt)}
+  .tfdrop{position:absolute;top:calc(100% + 8px);right:0;z-index:60;background:#0d1424;border:1px solid var(--line);border-radius:12px;padding:12px 14px;width:308px;max-width:86vw;box-shadow:0 14px 40px rgba(0,0,0,.55)}
+  .tfgroup{font-size:11.5px;color:var(--dim);font-weight:700;letter-spacing:.4px;margin:8px 0 5px;text-transform:uppercase}
+  .tfgroup:first-child{margin-top:0}
+  .tfopts{display:flex;flex-wrap:wrap;gap:6px}
   .chartwrap{position:relative;width:100%}
   #chart{width:100%;height:360px;display:block;background:#0a0f1a;border:1px solid var(--line);border-radius:10px}
   .pospanel{display:flex;flex-wrap:wrap;gap:4px 22px;background:#0a0f1a;border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:13px;margin-top:10px}
@@ -74,14 +81,39 @@
   <div class="price" id="price">—</div>
   <div class="chg" id="chg24">—</div>
   <div class="live">LIVE</div>
-  <div class="btns" id="tfBtns">
-    <button class="btn" data-tf="1m">1m</button>
-    <button class="btn active" data-tf="5m">5m</button>
-    <button class="btn" data-tf="15m">15m</button>
-    <button class="btn" data-tf="30m">30m</button>
-    <button class="btn" data-tf="1h">1h</button>
-    <button class="btn" data-tf="4h">4h</button>
-    <button class="btn" data-tf="1d">1d</button>
+  <div class="tfmenu">
+    <button class="btn tfmenubtn" id="tfMenuBtn">Timeframe: <b id="tfCur">5m</b> ▾</button>
+    <div class="tfdrop" id="tfDrop" hidden>
+      <div class="tfgroup">সেকেন্ড</div>
+      <div class="tfopts">
+        <button class="btn" data-tf="1s">1s</button>
+        <button class="btn" data-tf="5s">5s</button>
+        <button class="btn" data-tf="15s">15s</button>
+        <button class="btn" data-tf="30s">30s</button>
+      </div>
+      <div class="tfgroup">মিনিট</div>
+      <div class="tfopts">
+        <button class="btn" data-tf="1m">1m</button>
+        <button class="btn" data-tf="3m">3m</button>
+        <button class="btn active" data-tf="5m">5m</button>
+        <button class="btn" data-tf="15m">15m</button>
+        <button class="btn" data-tf="30m">30m</button>
+      </div>
+      <div class="tfgroup">ঘণ্টা</div>
+      <div class="tfopts">
+        <button class="btn" data-tf="1h">1h</button>
+        <button class="btn" data-tf="2h">2h</button>
+        <button class="btn" data-tf="4h">4h</button>
+        <button class="btn" data-tf="6h">6h</button>
+        <button class="btn" data-tf="12h">12h</button>
+      </div>
+      <div class="tfgroup">দিন / সপ্তাহ</div>
+      <div class="tfopts">
+        <button class="btn" data-tf="1d">1d</button>
+        <button class="btn" data-tf="3d">3d</button>
+        <button class="btn" data-tf="1w">1w</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -490,8 +522,34 @@ function renderFusion(){
 
 /* ============================== data loops ============================== */
 async function fetchKlines(tf, limit=300){
+  if(tf === '5s' || tf === '15s' || tf === '30s'){
+    // Binance has no native 5s/15s/30s candles — aggregate live from 1s candles.
+    const factor = parseInt(tf, 10);
+    const pages = Math.ceil(limit * factor / 1000);
+    const reqs = [];
+    for(let i = 0; i < pages; i++){
+      const et = Date.now() - i * 1000000;
+      reqs.push(fetchJSON(`${BINANCE}/api/v3/klines?symbol=${state.symbol}&interval=1s&limit=1000&endTime=${et}`).catch(()=>[]));
+    }
+    const parts = await Promise.all(reqs);
+    const byT = new Map();
+    for(const part of parts) for(const k of part) if(!byT.has(k[0])) byT.set(k[0], k);
+    const ones = [...byT.values()].sort((a,b)=>a[0]-b[0]);
+    const buckets = new Map();
+    for(const k of ones){
+      const bt = Math.floor(k[0] / (factor * 1000)) * (factor * 1000);
+      const b = buckets.get(bt);
+      if(!b) buckets.set(bt, {t: bt, o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5]});
+      else { b.h = Math.max(b.h, +k[2]); b.l = Math.min(b.l, +k[3]); b.c = +k[4]; b.v += +k[5]; }
+    }
+    return [...buckets.values()].sort((a,b)=>a.t-b.t).slice(-limit);
+  }
   const d = await fetchJSON(`${BINANCE}/api/v3/klines?symbol=${state.symbol}&interval=${tf}&limit=${limit}`);
   return d.map(k=>({t:k[0], o:+k[1], h:+k[2], l:+k[3], c:+k[4], v:+k[5]}));
+}
+async function refreshSelectedTF(){
+  try{ state.candles[state.tf] = await fetchKlines(state.tf); }catch(e){}
+  renderRatings(); renderChart();
 }
 async function refreshCandles(){
   const tfs = [...new Set([state.tf, ...TFS_FUSION])];
@@ -548,10 +606,21 @@ document.getElementById('symBtns').addEventListener('click', e=>{
   state.symbol = b.dataset.sym; state.candles = {}; state.ticker = null;
   refreshTicker(); refreshCandles(); loadNews(); runBacktest();
 });
-document.getElementById('tfBtns').addEventListener('click', e=>{
+const tfDrop = document.getElementById('tfDrop');
+document.getElementById('tfMenuBtn').addEventListener('click', e=>{
+  e.stopPropagation();
+  tfDrop.hidden = !tfDrop.hidden;
+});
+document.addEventListener('click', e=>{
+  if(!tfDrop.hidden && !e.target.closest('.tfmenu')) tfDrop.hidden = true;
+});
+tfDrop.addEventListener('click', e=>{
   const b = e.target.closest('[data-tf]'); if(!b) return;
-  document.querySelectorAll('#tfBtns .btn').forEach(x=>x.classList.toggle('active', x===b));
-  state.tf = b.dataset.tf; refreshCandles();
+  document.querySelectorAll('#tfDrop .btn').forEach(x=>x.classList.toggle('active', x===b));
+  state.tf = b.dataset.tf;
+  document.getElementById('tfCur').textContent = state.tf;
+  tfDrop.hidden = true;
+  refreshCandles();
 });
 /* ================= chart: Buy/Sell signal strategy ================= */
 const SIG_RR = 3, SIG_SWING = 14;
@@ -690,6 +759,7 @@ window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(re
 refreshTicker(); refreshCandles(); refreshFNG(); loadNews(); runBacktest();
 setInterval(refreshTicker, 5000);
 setInterval(refreshCandles, 15000);
+setInterval(()=>{ if(state.tf.endsWith('s')) refreshSelectedTF(); }, 4000);
 setInterval(loadNews, 300000);
 setInterval(refreshFNG, 600000);
 setInterval(runBacktest, 900000);

@@ -19,7 +19,7 @@ Moving Averages gauges, timeframe অনুযায়ী লাইভ আপ�
   Stochastic RSI, Williams %R, Awesome Oscillator, Momentum, Bull Bear
   Power, Ultimate Oscillator) + 14টি moving average (SMA/EMA 5–200,
   VWMA, Ichimoku) — প্রতিটার Buy/Sell/Neutral action সহ।
-- **Timeframes:** 1m / 5m / 15m / 30m / 1h / 4h; BTC ও ETH।
+- **Timeframes:** ড্রপডাউন মেনু থেকে 17টি — সেকেন্ড (1s native; 5s/15s/30s 1s candle থেকে live aggregation), মিনিট (1m–30m), ঘণ্টা (1h–12h), দিন/সপ্তাহ (1d/3d/1w); BTC ও ETH।
 - **News layer:** CoinDesk, CoinTelegraph, Decrypt, Bitcoin Magazine,
   Google News (RSS via rss2json, fallback allorigins) — keyword sentiment,
   সোর্সের ওজন, freshness decay, একই খবরের dedupe, বড় নেতিবাচক ঘটনায়
